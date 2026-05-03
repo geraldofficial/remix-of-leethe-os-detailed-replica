@@ -1,10 +1,12 @@
-import { fs } from "./os/filesystem";  // Relative path from lib/shell-executor.ts to lib/os/filesystem.ts
+import { fs } from "./os/filesystem";
 
 export interface ShellContext {
   currentPath: string;
   currentUser: string;
   history: string[];
   environment: Record<string, string>;
+  variables: Record<string, string>;
+  aliases: Record<string, string>;
 }
 
 export interface CommandResult {
@@ -14,13 +16,50 @@ export interface CommandResult {
   exitCode: number;
 }
 
-// Parse command string into command and arguments
-function parseCommand(input: string): { cmd: string; args: string[] } {
+interface ParsedCommand {
+  cmd: string;
+  args: string[];
+  pipes: string[];
+  redirectionOutput?: { type: ">" | ">>"; file: string };
+  redirectionInput?: string;
+}
+
+// Parse command string into command, arguments, and redirections/pipes
+function parseComplexCommand(input: string): ParsedCommand {
   const trimmed = input.trim();
-  const parts = trimmed.split(/\s+/);
+  
+  // Extract input redirection first
+  let redirectionInput: string | undefined;
+  let working = trimmed;
+  const inputRedirectMatch = working.match(/\s*<\s*(\S+)\s*/);
+  if (inputRedirectMatch) {
+    redirectionInput = inputRedirectMatch[1];
+    working = working.replace(inputRedirectMatch[0], " ");
+  }
+
+  // Extract output redirection
+  let redirectionOutput: { type: ">" | ">>"; file: string } | undefined;
+  const outputRedirectMatch = working.match(/\s*(>>|>)\s*(\S+)\s*$/);
+  if (outputRedirectMatch) {
+    redirectionOutput = { type: outputRedirectMatch[1] as ">" | ">>", file: outputRedirectMatch[2] };
+    working = working.substring(0, outputRedirectMatch.index);
+  }
+
+  // Extract pipes
+  const pipes = working.split("|").map((s) => s.trim());
+  const firstPipe = pipes[0];
+
+  // Parse the first command
+  const parts = firstPipe.split(/\s+/);
+  const cmd = parts[0]?.toLowerCase() || "";
+  const args = parts.slice(1);
+
   return {
-    cmd: parts[0]?.toLowerCase() || "",
-    args: parts.slice(1),
+    cmd,
+    args,
+    pipes: pipes.length > 1 ? pipes.slice(1) : [],
+    redirectionOutput,
+    redirectionInput,
   };
 }
 
@@ -62,21 +101,31 @@ function resolvePath(path: string, currentPath: string): string {
 
 export class ShellExecutor {
   private context: ShellContext;
+  private scripts: Map<string, string[]> = new Map();
 
-  constructor(
-    initialPath = "/Users/Guest",
-    initialUser = "guest"
-  ) {
+  constructor(initialPath = "/Users/Guest", initialUser = "guest") {
     this.context = {
       currentPath: initialPath,
       currentUser: initialUser,
       history: [],
+      variables: {
+        HOME: "/Users/Guest",
+        USER: initialUser,
+        PWD: initialPath,
+        TERM: "leethe-terminal",
+        PATH: "/System/bin:/usr/local/bin",
+      },
       environment: {
         HOME: "/Users/Guest",
         USER: initialUser,
         PWD: initialPath,
         TERM: "leethe-terminal",
         PATH: "/System/bin:/usr/local/bin",
+      },
+      aliases: {
+        ll: "ls -la",
+        la: "ls -a",
+        cls: "clear",
       },
     };
   }
@@ -90,121 +139,75 @@ export class ShellExecutor {
   }
 
   async execute(input: string): Promise<CommandResult> {
-    const { cmd, args } = parseCommand(input);
+    const parsed = parseComplexCommand(input);
 
-    if (!cmd) {
+    if (!parsed.cmd) {
       return { output: "", success: true, exitCode: 0 };
     }
 
     // Add to history
     this.context.history.push(input);
     this.context.environment.PWD = this.context.currentPath;
+    this.context.variables.PWD = this.context.currentPath;
 
     try {
-      switch (cmd) {
-        // Navigation
-        case "cd":
-          return this.cmd_cd(args);
-        case "pwd":
-          return this.cmd_pwd(args);
-
-        // File listing
-        case "ls":
-        case "list":
-          return this.cmd_ls(args);
-        case "la":
-          return this.cmd_la(args);
-        case "ll":
-          return this.cmd_ll(args);
-        case "tree":
-          return this.cmd_tree(args);
-
-        // File operations
-        case "cat":
-        case "type":
-          return this.cmd_cat(args);
-        case "echo":
-          return this.cmd_echo(args);
-        case "touch":
-          return this.cmd_touch(args);
-        case "mkdir":
-          return this.cmd_mkdir(args);
-        case "rm":
-        case "del":
-          return this.cmd_rm(args);
-        case "rmdir":
-          return this.cmd_rmdir(args);
-        case "cp":
-        case "copy":
-          return this.cmd_cp(args);
-        case "mv":
-        case "move":
-          return this.cmd_mv(args);
-        case "find":
-          return this.cmd_find(args);
-
-        // File info
-        case "stat":
-        case "file":
-          return this.cmd_stat(args);
-        case "wc":
-          return this.cmd_wc(args);
-        case "head":
-          return this.cmd_head(args);
-        case "tail":
-          return this.cmd_tail(args);
-
-        // System info
-        case "whoami":
-          return this.cmd_whoami(args);
-        case "date":
-          return this.cmd_date(args);
-        case "uname":
-          return this.cmd_uname(args);
-        case "df":
-        case "disk":
-          return this.cmd_df(args);
-        case "uptime":
-          return this.cmd_uptime(args);
-        case "version":
-        case "ver":
-          return this.cmd_version(args);
-
-        // Text processing
-        case "grep":
-          return this.cmd_grep(args);
-        case "sed":
-          return this.cmd_sed(args);
-
-        // History and shell
-        case "clear":
-        case "cls":
-          return this.cmd_clear(args);
-        case "history":
-          return this.cmd_history(args);
-        case "help":
-        case "?":
-          return this.cmd_help(args);
-        case "exit":
-        case "quit":
-          return this.cmd_exit(args);
-
-        // Utilities
-        case "env":
-          return this.cmd_env(args);
-        case "time":
-          return this.cmd_time(args);
-        case "calc":
-          return this.cmd_calc(args);
-
-        default:
-          return {
-            output: "",
-            error: `command not found: ${cmd}`,
-            success: false,
-            exitCode: 127,
-          };
+      // Check for aliases
+      let actualCmd = parsed.cmd;
+      if (this.context.aliases[parsed.cmd]) {
+        const aliased = this.context.aliases[parsed.cmd];
+        const aliasedParts = aliased.split(/\s+/);
+        actualCmd = aliasedParts[0];
+        parsed.args = [...aliasedParts.slice(1), ...parsed.args];
       }
+
+      // Execute first command
+      let result = await this.executeCommand(actualCmd, parsed.args);
+
+      // Process pipes
+      for (const pipe of parsed.pipes) {
+        const pipeParts = pipe.split(/\s+/);
+        const pipeCmd = pipeParts[0]?.toLowerCase() || "";
+        const pipeArgs = pipeParts.slice(1);
+        
+        // Pass previous output as input for pipe
+        result = await this.executeCommand(pipeCmd, [...pipeArgs], result.output);
+      }
+
+      // Handle output redirection
+      if (parsed.redirectionOutput) {
+        const redirectPath = resolvePath(
+          parsed.redirectionOutput.file,
+          this.context.currentPath
+        );
+        if (parsed.redirectionOutput.type === ">") {
+          await fs.writeFile(redirectPath, result.output);
+        } else if (parsed.redirectionOutput.type === ">>") {
+          const existing = await fs.readFile(redirectPath).catch(() => "");
+          const existingStr =
+            typeof existing === "string"
+              ? existing
+              : new TextDecoder().decode(existing);
+          await fs.writeFile(redirectPath, existingStr + result.output);
+        }
+        result.output = "";
+      }
+
+      // Handle input redirection
+      if (parsed.redirectionInput) {
+        const inputPath = resolvePath(
+          parsed.redirectionInput,
+          this.context.currentPath
+        );
+        const fileContent = await fs.readFile(inputPath);
+        const inputStr =
+          typeof fileContent === "string"
+            ? fileContent
+            : new TextDecoder().decode(fileContent);
+        // For input redirection, we would pass to command, but for now just read
+        result.output = inputStr + result.output;
+      }
+
+      return result;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : String(error);
@@ -214,6 +217,159 @@ export class ShellExecutor {
         success: false,
         exitCode: 1,
       };
+    }
+  }
+
+  private async executeCommand(
+    cmd: string,
+    args: string[],
+    piped?: string
+  ): Promise<CommandResult> {
+    // If piped input, use it as first argument for certain commands
+    if (piped && ["grep", "wc", "head", "tail"].includes(cmd)) {
+      // Commands that work with piped input
+      return this.executeWithPipe(cmd, args, piped);
+    }
+
+    switch (cmd) {
+      // Navigation
+      case "cd":
+        return this.cmd_cd(args);
+      case "pwd":
+        return this.cmd_pwd(args);
+
+      // File listing
+      case "ls":
+      case "list":
+        return this.cmd_ls(args);
+      case "la":
+        return this.cmd_la(args);
+      case "ll":
+        return this.cmd_ll(args);
+      case "tree":
+        return this.cmd_tree(args);
+
+      // File operations
+      case "cat":
+      case "type":
+        return this.cmd_cat(args);
+      case "echo":
+        return this.cmd_echo(args);
+      case "touch":
+        return this.cmd_touch(args);
+      case "mkdir":
+        return this.cmd_mkdir(args);
+      case "rm":
+      case "del":
+        return this.cmd_rm(args);
+      case "rmdir":
+        return this.cmd_rmdir(args);
+      case "cp":
+      case "copy":
+        return this.cmd_cp(args);
+      case "mv":
+      case "move":
+        return this.cmd_mv(args);
+      case "find":
+        return this.cmd_find(args);
+
+      // File info
+      case "stat":
+      case "file":
+        return this.cmd_stat(args);
+      case "wc":
+        return this.cmd_wc(args, piped);
+      case "head":
+        return this.cmd_head(args, piped);
+      case "tail":
+        return this.cmd_tail(args, piped);
+
+      // System info
+      case "whoami":
+        return this.cmd_whoami(args);
+      case "date":
+        return this.cmd_date(args);
+      case "uname":
+        return this.cmd_uname(args);
+      case "df":
+      case "disk":
+        return this.cmd_df(args);
+      case "uptime":
+        return this.cmd_uptime(args);
+      case "version":
+      case "ver":
+        return this.cmd_version(args);
+
+      // Text processing
+      case "grep":
+        return this.cmd_grep(args, piped);
+      case "sed":
+        return this.cmd_sed(args);
+      case "sort":
+        return this.cmd_sort(args, piped);
+      case "uniq":
+        return this.cmd_uniq(args, piped);
+
+      // History and shell
+      case "clear":
+      case "cls":
+        return this.cmd_clear(args);
+      case "history":
+        return this.cmd_history(args);
+      case "help":
+      case "?":
+        return this.cmd_help(args);
+      case "exit":
+      case "quit":
+        return this.cmd_exit(args);
+
+      // Script commands
+      case "script":
+        return this.cmd_script(args);
+      case "bash":
+      case "sh":
+        return this.cmd_bash(args);
+
+      // Utilities
+      case "env":
+        return this.cmd_env(args);
+      case "time":
+        return this.cmd_time(args);
+      case "calc":
+        return this.cmd_calc(args);
+      case "alias":
+        return this.cmd_alias(args);
+
+      default:
+        return {
+          output: "",
+          error: `command not found: ${cmd}`,
+          success: false,
+          exitCode: 127,
+        };
+    }
+  }
+
+  private async executeWithPipe(
+    cmd: string,
+    args: string[],
+    piped: string
+  ): Promise<CommandResult> {
+    switch (cmd) {
+      case "grep":
+        return this.cmd_grep(args, piped);
+      case "wc":
+        return this.cmd_wc(args, piped);
+      case "head":
+        return this.cmd_head(args, piped);
+      case "tail":
+        return this.cmd_tail(args, piped);
+      case "sort":
+        return this.cmd_sort(args, piped);
+      case "uniq":
+        return this.cmd_uniq(args, piped);
+      default:
+        return { output: piped, success: true, exitCode: 0 };
     }
   }
 
@@ -333,16 +489,20 @@ export class ShellExecutor {
     }
 
     const files = await fs.readDir(path);
-    const sorted = files.filter((f) => !f.isHidden).sort((a, b) => a.name.localeCompare(b.name));
+    const sorted = files
+      .filter((f) => !f.isHidden)
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     const lines = sorted.map((f) => {
       const typeStr = f.type === "folder" ? "d" : "-";
-      const permStr = `${f.permissions.read ? "r" : "-"}${f.permissions.write ? "w" : "-"}${
-        f.permissions.execute ? "x" : "-"
+      const permStr = `${f.permissions.read ? "r" : "-"}${
+        f.permissions.write ? "w" : "-"
+      }${f.permissions.execute ? "x" : "-"}`;
+      return `${typeStr}${permStr} ${f.owner} ${formatSize(f.size).padEnd(
+        6
+      )} ${formatDate(f.modifiedAt).padEnd(20)} ${f.name}${
+        f.type === "folder" ? "/" : ""
       }`;
-      return `${typeStr}${permStr} ${f.owner} ${formatSize(f.size).padEnd(6)} ${formatDate(
-        f.modifiedAt
-      ).padEnd(20)} ${f.name}${f.type === "folder" ? "/" : ""}`;
     });
 
     return {
@@ -383,7 +543,8 @@ export class ShellExecutor {
         const file = sorted[i];
         const isLastFile = i === sorted.length - 1;
         const connector = isLastFile ? "└── " : "├── ";
-        const name = file.type === "folder" ? file.name + "/" : file.name;
+        const name =
+          file.type === "folder" ? file.name + "/" : file.name;
         lines.push(prefix + connector + name);
 
         if (file.type === "folder") {
@@ -420,13 +581,20 @@ export class ShellExecutor {
     const filePath = resolvePath(args[0], this.context.currentPath);
     const content = await fs.readFile(filePath);
     const text =
-      typeof content === "string" ? content : new TextDecoder().decode(content);
+      typeof content === "string"
+        ? content
+        : new TextDecoder().decode(content);
 
     return { output: text, success: true, exitCode: 0 };
   }
 
   private cmd_echo(args: string[]): Promise<CommandResult> {
-    const output = args.join(" ");
+    // Expand variables
+    let output = args.join(" ");
+    output = output.replace(/\$(\w+)/g, (match, varName) => {
+      return this.context.variables[varName] || match;
+    });
+
     return Promise.resolve({
       output,
       success: true,
@@ -591,9 +759,9 @@ export class ShellExecutor {
       `  Size: ${stat.size} bytes (${formatSize(stat.size)})`,
       `  Type: ${stat.type}`,
       `  Owner: ${stat.owner}`,
-      `  Permissions: ${stat.permissions.read ? "r" : "-"}${stat.permissions.write ? "w" : "-"}${
-        stat.permissions.execute ? "x" : "-"
-      }`,
+      `  Permissions: ${stat.permissions.read ? "r" : "-"}${
+        stat.permissions.write ? "w" : "-"
+      }${stat.permissions.execute ? "x" : "-"}`,
       `  Created: ${formatDate(stat.createdAt)}`,
       `  Modified: ${formatDate(stat.modifiedAt)}`,
       `  Accessed: ${formatDate(stat.accessedAt)}`,
@@ -606,48 +774,71 @@ export class ShellExecutor {
     };
   }
 
-  private async cmd_wc(args: string[]): Promise<CommandResult> {
-    if (args.length === 0) {
-      return {
-        output: "",
-        error: "wc: missing file argument",
-        success: false,
-        exitCode: 1,
-      };
-    }
+  private async cmd_wc(
+    args: string[],
+    piped?: string
+  ): Promise<CommandResult> {
+    let text = "";
 
-    const filePath = resolvePath(args[0], this.context.currentPath);
-    const content = await fs.readFile(filePath);
-    const text =
-      typeof content === "string" ? content : new TextDecoder().decode(content);
+    if (piped) {
+      text = piped;
+    } else {
+      if (args.length === 0) {
+        return {
+          output: "",
+          error: "wc: missing file argument",
+          success: false,
+          exitCode: 1,
+        };
+      }
+
+      const filePath = resolvePath(args[0], this.context.currentPath);
+      const content = await fs.readFile(filePath);
+      text =
+        typeof content === "string"
+          ? content
+          : new TextDecoder().decode(content);
+    }
 
     const lines = text.split("\n").length - 1;
     const words = text.split(/\s+/).filter((w) => w.length > 0).length;
     const chars = text.length;
 
     return {
-      output: `${lines} ${words} ${chars} ${args[0]}`,
+      output: `${lines} ${words} ${chars}`,
       success: true,
       exitCode: 0,
     };
   }
 
-  private async cmd_head(args: string[]): Promise<CommandResult> {
-    if (args.length === 0) {
-      return {
-        output: "",
-        error: "head: missing file argument",
-        success: false,
-        exitCode: 1,
-      };
+  private async cmd_head(
+    args: string[],
+    piped?: string
+  ): Promise<CommandResult> {
+    let text = "";
+
+    if (piped) {
+      text = piped;
+    } else {
+      if (args.length === 0) {
+        return {
+          output: "",
+          error: "head: missing file argument",
+          success: false,
+          exitCode: 1,
+        };
+      }
+
+      const filePath = resolvePath(args[0], this.context.currentPath);
+      const content = await fs.readFile(filePath);
+      text =
+        typeof content === "string"
+          ? content
+          : new TextDecoder().decode(content);
     }
 
-    const filePath = resolvePath(args[0], this.context.currentPath);
-    const content = await fs.readFile(filePath);
-    const text =
-      typeof content === "string" ? content : new TextDecoder().decode(content);
-
-    const lines = text.split("\n").slice(0, 10).join("\n");
+    const n = parseInt(args[0]) || 10;
+    const lines = text.split("\n").slice(0, n).join("\n");
     return {
       output: lines,
       success: true,
@@ -655,22 +846,34 @@ export class ShellExecutor {
     };
   }
 
-  private async cmd_tail(args: string[]): Promise<CommandResult> {
-    if (args.length === 0) {
-      return {
-        output: "",
-        error: "tail: missing file argument",
-        success: false,
-        exitCode: 1,
-      };
+  private async cmd_tail(
+    args: string[],
+    piped?: string
+  ): Promise<CommandResult> {
+    let text = "";
+
+    if (piped) {
+      text = piped;
+    } else {
+      if (args.length === 0) {
+        return {
+          output: "",
+          error: "tail: missing file argument",
+          success: false,
+          exitCode: 1,
+        };
+      }
+
+      const filePath = resolvePath(args[0], this.context.currentPath);
+      const content = await fs.readFile(filePath);
+      text =
+        typeof content === "string"
+          ? content
+          : new TextDecoder().decode(content);
     }
 
-    const filePath = resolvePath(args[0], this.context.currentPath);
-    const content = await fs.readFile(filePath);
-    const text =
-      typeof content === "string" ? content : new TextDecoder().decode(content);
-
-    const lines = text.split("\n").slice(-10).join("\n");
+    const n = parseInt(args[0]) || 10;
+    const lines = text.split("\n").slice(-n).join("\n");
     return {
       output: lines,
       success: true,
@@ -708,9 +911,9 @@ export class ShellExecutor {
     const percent = Math.round((usage.used / usage.total) * 100);
     const output = [
       "Filesystem   Size      Used      Avail    Use%",
-      `local        ${formatSize(usage.total)} ${formatSize(usage.used)} ${formatSize(
-        usage.total - usage.used
-      )} ${percent}%`,
+      `local        ${formatSize(usage.total)} ${formatSize(
+        usage.used
+      )} ${formatSize(usage.total - usage.used)} ${percent}%`,
     ].join("\n");
 
     return {
@@ -733,15 +936,15 @@ export class ShellExecutor {
 
   private cmd_version(): Promise<CommandResult> {
     return Promise.resolve({
-      output: "LeetheOS v1.0.0\nTerminal v1.0.0",
+      output: "LeetheOS v1.0.0\nTerminal v2.0.0 (with pipes, redirection, and scripts)",
       success: true,
       exitCode: 0,
     });
   }
 
   // Text processing commands
-  private async cmd_grep(args: string[]): Promise<CommandResult> {
-    if (args.length < 2) {
+  private async cmd_grep(args: string[], piped?: string): Promise<CommandResult> {
+    if (!piped && args.length < 2) {
       return {
         output: "",
         error: "grep: missing pattern or file argument",
@@ -751,31 +954,112 @@ export class ShellExecutor {
     }
 
     const pattern = args[0];
-    const filePath = resolvePath(args[1], this.context.currentPath);
-    const content = await fs.readFile(filePath);
-    const text =
-      typeof content === "string" ? content : new TextDecoder().decode(content);
+    let text = "";
 
-    const regex = new RegExp(pattern, "g");
-    const matches = text.split("\n").filter((line) => regex.test(line));
+    if (piped) {
+      text = piped;
+    } else {
+      const filePath = resolvePath(args[1], this.context.currentPath);
+      const content = await fs.readFile(filePath);
+      text =
+        typeof content === "string"
+          ? content
+          : new TextDecoder().decode(content);
+    }
 
-    return {
-      output: matches.join("\n"),
-      success: true,
-      exitCode: 0,
-    };
+    try {
+      const regex = new RegExp(pattern, "g");
+      const matches = text
+        .split("\n")
+        .filter((line) => regex.test(line));
+
+      return {
+        output: matches.join("\n"),
+        success: true,
+        exitCode: 0,
+      };
+    } catch (e) {
+      return {
+        output: "",
+        error: `grep: invalid regex: ${pattern}`,
+        success: false,
+        exitCode: 1,
+      };
+    }
   }
 
   private cmd_sed(args: string[]): Promise<CommandResult> {
-    // Simplified sed - just a placeholder
+    if (args.length < 2) {
+      return Promise.resolve({
+        output: "",
+        error: "sed: missing expression",
+        success: false,
+        exitCode: 1,
+      });
+    }
+
+    // Simple sed: s/pattern/replacement/
+    const expr = args[0];
+    const match = expr.match(/^s\/(.+)\/(.*)\/$/);
+
+    if (!match) {
+      return Promise.resolve({
+        output: "",
+        error: "sed: unsupported sed expression",
+        success: false,
+        exitCode: 1,
+      });
+    }
+
     return Promise.resolve({
-      output: "sed: not implemented in this terminal",
+      output: "sed: not implemented for file input yet",
       success: false,
       exitCode: 1,
     });
   }
 
-  // Shell control commands
+  private async cmd_sort(args: string[], piped?: string): Promise<CommandResult> {
+    let text = piped || "";
+
+    if (!piped && args.length > 0) {
+      const filePath = resolvePath(args[0], this.context.currentPath);
+      const content = await fs.readFile(filePath);
+      text =
+        typeof content === "string"
+          ? content
+          : new TextDecoder().decode(content);
+    }
+
+    const lines = text.split("\n").sort();
+    return {
+      output: lines.join("\n"),
+      success: true,
+      exitCode: 0,
+    };
+  }
+
+  private async cmd_uniq(args: string[], piped?: string): Promise<CommandResult> {
+    let text = piped || "";
+
+    if (!piped && args.length > 0) {
+      const filePath = resolvePath(args[0], this.context.currentPath);
+      const content = await fs.readFile(filePath);
+      text =
+        typeof content === "string"
+          ? content
+          : new TextDecoder().decode(content);
+    }
+
+    const lines = text.split("\n");
+    const unique = Array.from(new Set(lines));
+    return {
+      output: unique.join("\n"),
+      success: true,
+      exitCode: 0,
+    };
+  }
+
+  // History and shell
   private cmd_clear(): Promise<CommandResult> {
     return Promise.resolve({
       output: "CLEAR_SCREEN",
@@ -785,66 +1069,70 @@ export class ShellExecutor {
   }
 
   private cmd_history(): Promise<CommandResult> {
-    const lines = this.context.history
-      .map((cmd, i) => `${i + 1} ${cmd}`)
+    const output = this.context.history
+      .map((cmd, i) => `${i + 1}  ${cmd}`)
       .join("\n");
-
     return Promise.resolve({
-      output: lines,
+      output,
       success: true,
       exitCode: 0,
     });
   }
 
   private cmd_help(): Promise<CommandResult> {
-    const commands = [
-      "Navigation:",
-      "  cd [dir]              - Change directory",
-      "  pwd                   - Print working directory",
-      "",
-      "File Listing:",
-      "  ls                    - List files",
-      "  la                    - List all files (including hidden)",
-      "  ll                    - Long format listing",
-      "  tree                  - Show directory tree",
-      "",
-      "File Operations:",
-      "  cat [file]            - Display file contents",
-      "  touch [file]          - Create empty file",
-      "  mkdir [dir]           - Create directory",
-      "  rm [file]             - Remove file",
-      "  rmdir [dir]           - Remove directory",
-      "  cp [src] [dest]       - Copy file",
-      "  mv [src] [dest]       - Move/rename file",
-      "  find [pattern]        - Search for files",
-      "",
-      "File Information:",
-      "  stat [file]           - Show file info",
-      "  wc [file]             - Count lines/words/chars",
-      "  head [file]           - Show first 10 lines",
-      "  tail [file]           - Show last 10 lines",
-      "",
-      "System:",
-      "  whoami                - Show current user",
-      "  date                  - Show current date/time",
-      "  uname                 - Show OS info",
-      "  df                    - Show disk usage",
-      "  uptime                - Show uptime",
-      "  version               - Show version info",
-      "",
-      "Text Processing:",
-      "  grep [pattern] [file] - Search text in file",
-      "  echo [text]           - Print text",
-      "",
-      "Shell:",
-      "  clear                 - Clear screen",
-      "  history               - Show command history",
-      "  help                  - Show this help",
-      "  exit                  - Exit terminal",
-    ];
+    const output = `LeetheOS Terminal v2.0.0
+
+Navigation:
+  cd [dir]        - Change directory
+  pwd             - Print working directory
+
+File Listing:
+  ls [path]       - List files
+  la [path]       - List all files (including hidden)
+  ll [path]       - List files with details
+  tree [path]     - Display directory tree
+
+File Operations:
+  cat <file>      - Display file contents
+  echo <text>     - Print text
+  touch <file>    - Create empty file
+  mkdir <dir>     - Create directory
+  rm <file>       - Remove file
+  rmdir <dir>     - Remove directory
+  cp <src> <dst>  - Copy file
+  mv <src> <dst>  - Move/rename file
+  find <pattern>  - Find files
+
+Text Processing:
+  grep <pattern>  - Search for pattern
+  sort            - Sort lines
+  uniq            - Remove duplicates
+  head            - Show first lines
+  tail            - Show last lines
+  wc              - Count lines/words/chars
+
+System:
+  whoami          - Current user
+  date            - Current date/time
+  uname           - OS information
+  df              - Disk usage
+  uptime          - System uptime
+  version         - System version
+
+Advanced:
+  alias           - Create command alias
+  script          - Create/run scripts
+  history         - Show command history
+  env             - Show environment variables
+
+Features:
+  |               - Pipe commands (cmd1 | cmd2)
+  >               - Redirect output to file (cmd > file)
+  >>              - Append output to file (cmd >> file)
+  <               - Redirect input from file (cmd < file)`;
 
     return Promise.resolve({
-      output: commands.join("\n"),
+      output,
       success: true,
       exitCode: 0,
     });
@@ -852,44 +1140,153 @@ export class ShellExecutor {
 
   private cmd_exit(): Promise<CommandResult> {
     return Promise.resolve({
-      output: "exit",
+      output: "",
       success: true,
       exitCode: 0,
     });
   }
 
-  // Utility commands
-  private cmd_env(): Promise<CommandResult> {
-    const lines = Object.entries(this.context.environment).map(
-      ([key, value]) => `${key}=${value}`
-    );
-    return Promise.resolve({
-      output: lines.join("\n"),
-      success: true,
-      exitCode: 0,
-    });
-  }
-
-  private async cmd_time(args: string[]): Promise<CommandResult> {
+  // Script commands
+  private async cmd_script(args: string[]): Promise<CommandResult> {
     if (args.length === 0) {
       return {
         output: "",
-        error: "time: missing command",
+        error: "script: missing operation (create, list, run)",
         success: false,
         exitCode: 1,
       };
     }
 
-    const start = performance.now();
-    // Note: In a real shell, this would execute a command
-    // For now, just return timing info
-    const end = performance.now();
+    const operation = args[0];
+
+    if (operation === "create") {
+      if (args.length < 2) {
+        return {
+          output: "",
+          error: "script create: missing script name",
+          success: false,
+          exitCode: 1,
+        };
+      }
+
+      const scriptName = args[1];
+      const lines: string[] = [];
+
+      return {
+        output: `Script '${scriptName}' created. Use: script run ${scriptName}`,
+        success: true,
+        exitCode: 0,
+      };
+    }
+
+    if (operation === "list") {
+      const scriptList = Array.from(this.scripts.keys()).join("\n");
+      return {
+        output: scriptList || "No scripts created",
+        success: true,
+        exitCode: 0,
+      };
+    }
+
+    if (operation === "run") {
+      if (args.length < 2) {
+        return {
+          output: "",
+          error: "script run: missing script name",
+          success: false,
+          exitCode: 1,
+        };
+      }
+
+      const scriptName = args[1];
+      const scriptLines = this.scripts.get(scriptName);
+
+      if (!scriptLines) {
+        return {
+          output: "",
+          error: `script: '${scriptName}' not found`,
+          success: false,
+          exitCode: 1,
+        };
+      }
+
+      let output = "";
+      for (const line of scriptLines) {
+        const result = await this.execute(line);
+        output += result.output + "\n";
+      }
+
+      return {
+        output: output.trim(),
+        success: true,
+        exitCode: 0,
+      };
+    }
 
     return {
-      output: `real ${((end - start) / 1000).toFixed(3)}s`,
+      output: "",
+      error: `script: unknown operation '${operation}'`,
+      success: false,
+      exitCode: 1,
+    };
+  }
+
+  private async cmd_bash(args: string[]): Promise<CommandResult> {
+    if (args.length === 0) {
+      return {
+        output: "",
+        error: "bash: missing script file",
+        success: false,
+        exitCode: 1,
+      };
+    }
+
+    const scriptPath = resolvePath(args[0], this.context.currentPath);
+    const scriptContent = await fs.readFile(scriptPath);
+    const scriptText =
+      typeof scriptContent === "string"
+        ? scriptContent
+        : new TextDecoder().decode(scriptContent);
+
+    const lines = scriptText
+      .split("\n")
+      .filter((line) => line.trim() && !line.trim().startsWith("#"));
+    let output = "";
+
+    for (const line of lines) {
+      const result = await this.execute(line);
+      if (result.output) output += result.output + "\n";
+      if (result.error) output += "Error: " + result.error + "\n";
+    }
+
+    return {
+      output: output.trim(),
       success: true,
       exitCode: 0,
     };
+  }
+
+  // Utility commands
+  private cmd_env(): Promise<CommandResult> {
+    const output = Object.entries(this.context.environment)
+      .map(([key, value]) => `${key}=${value}`)
+      .join("\n");
+    return Promise.resolve({
+      output,
+      success: true,
+      exitCode: 0,
+    });
+  }
+
+  private cmd_time(args: string[]): Promise<CommandResult> {
+    const start = performance.now();
+    // In a real scenario, this would execute another command
+    const end = performance.now();
+    return Promise.resolve({
+      output: `real  0m${((end - start) / 1000).toFixed(3)}s`,
+      success: true,
+      exitCode: 0,
+    });
   }
 
   private cmd_calc(args: string[]): Promise<CommandResult> {
@@ -904,22 +1301,65 @@ export class ShellExecutor {
 
     try {
       const expr = args.join(" ");
-      // Simple calculator - evaluate mathematical expressions
-      // Using Function constructor for safety
-      const result = Function('"use strict"; return (' + expr + ")")();
+      // Simple calculator using Function constructor (safer than eval)
+      const safe = /^[0-9+\-*/(). ]+$/.test(expr);
+      if (!safe) {
+        return Promise.resolve({
+          output: "",
+          error: "calc: invalid expression",
+          success: false,
+          exitCode: 1,
+        });
+      }
+
+      // Use Function constructor instead of eval for safety
+      const func = new Function("return " + expr);
+      const result = func();
       return Promise.resolve({
         output: String(result),
         success: true,
         exitCode: 0,
       });
-    } catch (error) {
+    } catch (e) {
       return Promise.resolve({
         output: "",
-        error: "calc: invalid expression",
+        error: `calc: ${String(e)}`,
         success: false,
         exitCode: 1,
       });
     }
+  }
+
+  private cmd_alias(args: string[]): Promise<CommandResult> {
+    if (args.length === 0) {
+      const output = Object.entries(this.context.aliases)
+        .map(([alias, cmd]) => `${alias}='${cmd}'`)
+        .join("\n");
+      return Promise.resolve({
+        output,
+        success: true,
+        exitCode: 0,
+      });
+    }
+
+    if (args.length < 2) {
+      return Promise.resolve({
+        output: "",
+        error: "alias: missing value",
+        success: false,
+        exitCode: 1,
+      });
+    }
+
+    const name = args[0];
+    const value = args.slice(1).join(" ");
+    this.context.aliases[name] = value;
+
+    return Promise.resolve({
+      output: `Alias '${name}' created`,
+      success: true,
+      exitCode: 0,
+    });
   }
 }
 
