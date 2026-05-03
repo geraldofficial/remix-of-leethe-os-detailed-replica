@@ -1,7 +1,8 @@
 import { Globe, ListTodo, Music, Film, Image as ImageIcon, Settings as SettingsIcon, Calculator, Camera, Map, Activity, FileText, MessageSquare, Store, ScanLine, LayoutGrid } from 'lucide-react';
 import EmptyState from '../os/EmptyState';
 
-const cfg: Record<string, { icon: React.ReactNode; title: string; description: string; primary?: string; secondary?: string }> = {
+type Cfg = { icon: React.ReactNode; title: string; description: string; primary?: string; secondary?: string };
+const cfg: Record<string, Cfg> = {
   browser: { icon: <Globe size={20} fill="currentColor" fillOpacity={0.15} />, title: 'New tab', description: 'Type a URL or search to get started.', primary: 'Go to Lovable' },
   tasks: { icon: <ListTodo size={20} />, title: 'No tasks yet', description: 'Create your first task to start tracking your work.', primary: 'New Task' },
   music: { icon: <Music size={20} fill="currentColor" fillOpacity={0.15} />, title: 'Your library is empty', description: 'Add music files or connect a streaming account.', primary: 'Add Music' },
@@ -20,7 +21,7 @@ const cfg: Record<string, { icon: React.ReactNode; title: string; description: s
 };
 
 export default function PlaceholderApp({ appId }: { appId: string }) {
-  const c = cfg[appId] ?? { icon: <LayoutGrid size={20} />, title: 'Coming soon', description: 'This app is not yet available.' };
+  const c: Cfg = cfg[appId] ?? { icon: <LayoutGrid size={20} />, title: 'Coming soon', description: 'This app is not yet available.' };
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: 'hsl(var(--card))' }}>
       <EmptyState
