@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useSettingsStore, ACCENT_COLORS, type AccentColor } from "@/lib/stores/settings-store";
 import { useOSStore } from "@/lib/stores/os-store";
+import { useThemeStore, THEMES, type ThemeName } from "@/lib/stores/theme-store";
 
 interface SettingsAppProps {
   windowId: string;
@@ -118,6 +119,7 @@ function Slider({
 
 export default function SettingsApp({ windowId }: SettingsAppProps) {
   const [active, setActive] = useState("appearance");
+  const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
   
   const {
     theme,
@@ -144,6 +146,14 @@ export default function SettingsApp({ windowId }: SettingsAppProps) {
     setSoundEffects,
     resetToDefaults,
   } = useSettingsStore();
+
+  const {
+    currentTheme,
+    setTheme: setThemeName,
+    getTheme,
+    setCustomColor,
+    resetCustomColors,
+  } = useThemeStore();
 
   const {
     volume,
@@ -193,20 +203,21 @@ export default function SettingsApp({ windowId }: SettingsAppProps) {
           <div>
             <h2 className="text-lg font-semibold mb-5">Appearance</h2>
             
-            <Row label="Theme" hint="Choose how LeetheOS looks">
-              <div className="flex gap-1">
-                {(["light", "dark", "auto"] as const).map((t) => (
+            <Row label="Theme" hint="Choose a built-in theme">
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.keys(THEMES) as ThemeName[]).map((themeName) => (
                   <button
-                    key={t}
-                    onClick={() => setTheme(t)}
-                    className="px-4 py-1.5 text-xs rounded-md capitalize transition-colors"
+                    key={themeName}
+                    onClick={() => setThemeName(themeName)}
+                    className="px-3 py-2 text-xs rounded-md capitalize transition-colors text-left"
                     style={{
-                      background: theme === t ? "hsl(var(--accent))" : "hsl(var(--secondary))",
-                      color: theme === t ? "#fff" : "hsl(var(--foreground))",
+                      background: currentTheme === themeName ? "hsl(var(--accent) / 0.2)" : "hsl(var(--secondary))",
+                      border: currentTheme === themeName ? "2px solid hsl(var(--accent))" : "2px solid transparent",
+                      color: currentTheme === themeName ? "hsl(var(--accent))" : "hsl(var(--foreground))",
                       fontWeight: 500,
                     }}
                   >
-                    {t}
+                    {THEMES[themeName].label}
                   </button>
                 ))}
               </div>
@@ -234,6 +245,40 @@ export default function SettingsApp({ windowId }: SettingsAppProps) {
                 ))}
               </div>
             </Row>
+
+            <div style={{ borderTop: "1px solid hsl(var(--border))", marginTop: 16, paddingTop: 16 }}>
+              <h3 className="text-sm font-medium mb-4">Advanced Theme Colors</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {(Object.keys(getTheme().colors) as Array<keyof typeof getTheme().colors>).slice(0, 8).map((colorKey) => (
+                  <div key={colorKey} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={getTheme().colors[colorKey]}
+                      onChange={(e) => setCustomColor(colorKey, e.target.value)}
+                      className="text-xs px-2 py-1 rounded flex-1 flex-shrink-0"
+                      style={{
+                        background: "hsl(var(--secondary))",
+                        border: "1px solid hsl(var(--border))",
+                        color: "hsl(var(--foreground))",
+                      }}
+                      maxLength={20}
+                    />
+                    <span className="text-[10px] text-gray-500">{colorKey.slice(0, 4)}</span>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={resetCustomColors}
+                className="mt-3 text-xs px-3 py-1.5 rounded-md"
+                style={{
+                  background: "hsl(var(--secondary))",
+                  border: "1px solid hsl(var(--border))",
+                  color: "hsl(var(--foreground))",
+                }}
+              >
+                Reset Custom Colors
+              </button>
+            </div>
 
             <Row label="Reduce Motion" hint="Minimize animations">
               <Toggle checked={reduceMotion} onChange={setReduceMotion} />
