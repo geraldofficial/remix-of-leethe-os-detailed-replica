@@ -9,6 +9,7 @@ import Dock from "./Dock";
 import Window from "./Window";
 import AppLauncher from "./AppLauncher";
 import ContextMenu from "./ContextMenu";
+import DesktopBackground from "./DesktopBackground";
 import { getApp } from "@/lib/os/app-registry";
 import type { MenuItem } from "@/lib/types";
 import type { SnapPosition } from "@/lib/stores/os-store";
@@ -189,15 +190,8 @@ export default function Desktop() {
       onClick={handleDesktopClick}
       data-desktop="true"
     >
-      {/* Wallpaper */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
-        data-desktop="true"
-        style={{
-          backgroundImage: `url(${wallpaper})`,
-          backgroundColor: "#1a1a2e",
-        }}
-      />
+      {/* Wallpaper Background */}
+      <DesktopBackground />
 
       {/* Top Bar */}
       <TopBar onApplicationsClick={() => setLauncherOpen(!isLauncherOpen)} />

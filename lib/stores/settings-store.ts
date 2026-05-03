@@ -6,12 +6,14 @@ import { persist } from "zustand/middleware";
 export type ThemeMode = "light" | "dark" | "auto";
 export type DockPosition = "bottom" | "left" | "right";
 export type AccentColor = "blue" | "purple" | "pink" | "red" | "orange" | "yellow" | "green" | "teal";
+export type AnimationSpeed = "normal" | "reduced" | "fast";
 
 interface SettingsState {
   // Appearance
   theme: ThemeMode;
   accentColor: AccentColor;
   wallpaper: string;
+  animationSpeed: AnimationSpeed;
   reduceMotion: boolean;
   reduceTransparency: boolean;
   
@@ -41,6 +43,7 @@ interface SettingsState {
   setTheme: (theme: ThemeMode) => void;
   setAccentColor: (color: AccentColor) => void;
   setWallpaper: (url: string) => void;
+  setAnimationSpeed: (speed: AnimationSpeed) => void;
   setReduceMotion: (enabled: boolean) => void;
   setReduceTransparency: (enabled: boolean) => void;
   setDockPosition: (position: DockPosition) => void;
@@ -59,7 +62,8 @@ interface SettingsState {
 const DEFAULT_SETTINGS = {
   theme: "light" as ThemeMode,
   accentColor: "blue" as AccentColor,
-  wallpaper: "/wallpapers/default.jpg",
+  wallpaper: "/wallpapers/modern-blue.jpg",
+  animationSpeed: "normal" as AnimationSpeed,
   reduceMotion: false,
   reduceTransparency: false,
   dockPosition: "bottom" as DockPosition,
@@ -116,6 +120,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
 
       setWallpaper: (wallpaper) => set({ wallpaper }),
+      setAnimationSpeed: (animationSpeed) => set({ animationSpeed }),
       setReduceMotion: (reduceMotion) => set({ reduceMotion }),
       setReduceTransparency: (reduceTransparency) => set({ reduceTransparency }),
       setDockPosition: (dockPosition) => set({ dockPosition }),
@@ -151,10 +156,9 @@ export const ACCENT_COLORS: Record<AccentColor, { hex: string; hsl: string }> = 
 
 // Default wallpapers
 export const DEFAULT_WALLPAPERS = [
-  { id: "default", name: "Aurora", url: "/wallpapers/default.jpg" },
-  { id: "gradient-blue", name: "Ocean Blue", url: "/wallpapers/gradient-blue.jpg" },
-  { id: "gradient-purple", name: "Nebula", url: "/wallpapers/gradient-purple.jpg" },
-  { id: "mountains", name: "Mountains", url: "/wallpapers/mountains.jpg" },
-  { id: "forest", name: "Forest", url: "/wallpapers/forest.jpg" },
-  { id: "abstract", name: "Abstract", url: "/wallpapers/abstract.jpg" },
+  { id: "modern-blue", name: "Modern Blue", url: "/wallpapers/modern-blue.jpg" },
+  { id: "dark-minimal", name: "Dark Minimal", url: "/wallpapers/dark-minimal.jpg" },
+  { id: "sunrise", name: "Sunrise", url: "/wallpapers/sunrise.jpg" },
+  { id: "forest-green", name: "Forest Green", url: "/wallpapers/forest-green.jpg" },
+  { id: "space", name: "Space", url: "/wallpapers/space.jpg" },
 ];
