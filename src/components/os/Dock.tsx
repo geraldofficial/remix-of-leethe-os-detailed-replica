@@ -35,7 +35,7 @@ const dockItems: DockItem[] = [
   { id: 'plus',         label: 'Add App',           icon: s => <PlusAppIcon size={s} />,       group: 2 },
 ];
 
-export default function Dock({ onOpenApp, openAppIds = [], onContextMenu }: DockProps) {
+export default function Dock({ onOpenApp, openAppIds = [], onContextMenu, visible = true, onMouseEnter, onMouseLeave }: DockProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [bouncingIdx, setBouncingIdx] = useState<number | null>(null);
 
