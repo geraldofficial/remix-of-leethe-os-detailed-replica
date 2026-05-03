@@ -38,6 +38,10 @@ import MusicApp from "./MusicApp";
 import WeatherApp from "./WeatherApp";
 import AppCenterApp from "./AppCenterApp";
 import TasksApp from "./TasksApp";
+import MailApp from "./MailApp";
+import VideoApp from "./VideoApp";
+import CameraApp from "./CameraApp";
+import MonitorApp from "./MonitorApp";
 
 // Register all built-in apps
 registerApp({
@@ -264,6 +268,70 @@ registerApp({
   permissions: ["storage"],
 });
 
+registerApp({
+  id: "mail",
+  name: "Mail",
+  description: "Manage your emails",
+  icon: MailIcon,
+  component: MailApp,
+  defaultWidth: 900,
+  defaultHeight: 600,
+  minWidth: 600,
+  minHeight: 400,
+  category: "productivity",
+  isSystem: true,
+  singleInstance: true,
+  permissions: ["network"],
+});
+
+registerApp({
+  id: "videos",
+  name: "Videos",
+  description: "Watch and organize videos",
+  icon: VideoIcon,
+  component: VideoApp,
+  defaultWidth: 900,
+  defaultHeight: 600,
+  minWidth: 600,
+  minHeight: 400,
+  category: "media",
+  isSystem: true,
+  singleInstance: true,
+  permissions: ["filesystem.read"],
+});
+
+registerApp({
+  id: "camera",
+  name: "Camera",
+  description: "Take photos and videos",
+  icon: CameraIcon,
+  component: CameraApp,
+  defaultWidth: 600,
+  defaultHeight: 500,
+  minWidth: 400,
+  minHeight: 350,
+  category: "media",
+  isSystem: true,
+  singleInstance: true,
+  permissions: ["camera"],
+});
+
+registerApp({
+  id: "monitor",
+  name: "System Monitor",
+  description: "Monitor system resources and processes",
+  icon: MonitorIcon,
+  component: MonitorApp,
+  defaultWidth: 500,
+  defaultHeight: 400,
+  minWidth: 400,
+  minHeight: 300,
+  category: "system",
+  isSystem: true,
+  singleInstance: true,
+  permissions: [],
+});
+
 export {
   FilesApp,
   TerminalApp,
@@ -279,4 +347,8 @@ export {
   WeatherApp,
   AppCenterApp,
   TasksApp,
+  MailApp,
+  VideoApp,
+  CameraApp,
+  MonitorApp,
 };
