@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useOSStore } from "@/lib/stores/os-store";
 import { useSettingsStore } from "@/lib/stores/settings-store";
+import InstallPrompt from "./InstallPrompt";
 
 interface TopBarProps {
   onApplicationsClick: () => void;
@@ -84,6 +85,9 @@ export default function TopBar({ onApplicationsClick }: TopBarProps) {
 
         {/* Right: Status icons */}
         <div className="flex items-center gap-2">
+          {/* Install Prompt */}
+          <InstallPrompt />
+
           {/* Notifications */}
           <button
             className="relative p-1 rounded hover:bg-white/10 transition-colors"

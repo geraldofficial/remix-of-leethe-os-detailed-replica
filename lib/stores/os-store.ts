@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export type SnapPosition = "left" | "right" | "top" | "bottom" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | null;
+
 export interface AppWindow {
   id: string;
   appId: string;
@@ -16,6 +18,7 @@ export interface AppWindow {
   isMinimized: boolean;
   isMaximized: boolean;
   zIndex: number;
+  snapPosition?: SnapPosition;
   prevBounds?: { x: number; y: number; width: number; height: number };
 }
 
@@ -83,6 +86,7 @@ interface OSState {
   restoreWindow: (id: string) => void;
   moveWindow: (id: string, x: number, y: number) => void;
   resizeWindow: (id: string, width: number, height: number) => void;
+  snapWindow: (id: string, position: SnapPosition) => void;
   
   // UI actions
   setLauncherOpen: (open: boolean) => void;
@@ -315,6 +319,73 @@ export const useOSStore = create<OSState>()(
                 } 
               : w
           ),
+        }));
+      },
+
+      snapWindow: (id, position) => {
+        if (!position) {
+          // Unsnap - restore previous bounds
+          set((state) => ({
+            windows: state.windows.map((w) => {
+              if (w.id !== id) return w;
+              return {
+                ...w,
+                snapPosition: null,
+                x: w.prevBounds?.x ?? w.x,
+                y: w.prevBounds?.y ?? w.y,
+                width: w.prevBounds?.width ?? w.width,
+                height: w.prevBounds?.height ?? w.height,
+                prevBounds: undefined,
+              };
+            }),
+          }));
+          return;
+        }
+
+        // Get viewport dimensions (accounting for topbar at 28px height)
+        const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1920;
+        const viewportHeight = typeof window !== "undefined" ? window.innerHeight - 28 : 1080 - 28;
+        const topbarHeight = 28;
+
+        let newBounds = { x: 0, y: topbarHeight, width: viewportWidth / 2, height: viewportHeight };
+
+        switch (position) {
+          case "left":
+            newBounds = { x: 0, y: topbarHeight, width: viewportWidth / 2, height: viewportHeight };
+            break;
+          case "right":
+            newBounds = { x: viewportWidth / 2, y: topbarHeight, width: viewportWidth / 2, height: viewportHeight };
+            break;
+          case "top":
+            newBounds = { x: 0, y: topbarHeight, width: viewportWidth, height: viewportHeight / 2 };
+            break;
+          case "bottom":
+            newBounds = { x: 0, y: topbarHeight + viewportHeight / 2, width: viewportWidth, height: viewportHeight / 2 };
+            break;
+          case "top-left":
+            newBounds = { x: 0, y: topbarHeight, width: viewportWidth / 2, height: viewportHeight / 2 };
+            break;
+          case "top-right":
+            newBounds = { x: viewportWidth / 2, y: topbarHeight, width: viewportWidth / 2, height: viewportHeight / 2 };
+            break;
+          case "bottom-left":
+            newBounds = { x: 0, y: topbarHeight + viewportHeight / 2, width: viewportWidth / 2, height: viewportHeight / 2 };
+            break;
+          case "bottom-right":
+            newBounds = { x: viewportWidth / 2, y: topbarHeight + viewportHeight / 2, width: viewportWidth / 2, height: viewportHeight / 2 };
+            break;
+        }
+
+        set((state) => ({
+          windows: state.windows.map((w) => {
+            if (w.id !== id) return w;
+            return {
+              ...w,
+              snapPosition: position,
+              prevBounds: { x: w.x, y: w.y, width: w.width, height: w.height },
+              ...newBounds,
+            };
+          }),
         }));
       },
 

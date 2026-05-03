@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState, useEffect } from "react";
 import { useOSStore } from "@/lib/stores/os-store";
 import { useSettingsStore } from "@/lib/stores/settings-store";
+import { useHotkeyStore } from "@/lib/stores/hotkey-store";
 import TopBar from "./TopBar";
 import Dock from "./Dock";
 import Window from "./Window";
@@ -10,6 +11,7 @@ import AppLauncher from "./AppLauncher";
 import ContextMenu from "./ContextMenu";
 import { getApp } from "@/lib/os/app-registry";
 import type { MenuItem } from "@/lib/types";
+import type { SnapPosition } from "@/lib/stores/os-store";
 
 // Import and register all apps
 import "@/components/apps";
@@ -22,6 +24,7 @@ export default function Desktop() {
     windows,
     isLauncherOpen,
     dockVisible,
+    activeWindowId,
     openWindow,
     closeWindow,
     focusWindow,
@@ -29,11 +32,14 @@ export default function Desktop() {
     maximizeWindow,
     moveWindow,
     resizeWindow,
+    snapWindow,
     closeAllWindowsForApp,
     setLauncherOpen,
     setDockVisible,
   } = useOSStore();
-  
+
+  const { parseKeyboardEvent, getHotkey } = useHotkeyStore();
+
   const { wallpaper, dockAutoHide, theme } = useSettingsStore();
   
   const [contextMenu, setContextMenu] = useState<{
@@ -93,6 +99,58 @@ export default function Desktop() {
     },
     [openWindow]
   );
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const { key, modifiers } = parseKeyboardEvent(e);
+      const hotkey = getHotkey(key, modifiers);
+
+      if (!hotkey) return;
+
+      e.preventDefault();
+
+      switch (hotkey.action) {
+        case "launcher":
+          setLauncherOpen(!isLauncherOpen);
+          break;
+        case "close-window":
+          if (activeWindowId) closeWindow(activeWindowId);
+          break;
+        case "terminal":
+          handleOpenApp("terminal");
+          break;
+        case "settings":
+          handleOpenApp("settings");
+          break;
+        case "minimize":
+          if (activeWindowId) minimizeWindow(activeWindowId);
+          break;
+        case "snap-left":
+          if (activeWindowId) snapWindow(activeWindowId, "left");
+          break;
+        case "snap-right":
+          if (activeWindowId) snapWindow(activeWindowId, "right");
+          break;
+        case "snap-up":
+          if (activeWindowId) {
+            const win = windows.find((w) => w.id === activeWindowId);
+            if (win?.isMaximized) {
+              maximizeWindow(activeWindowId);
+            } else {
+              snapWindow(activeWindowId, "top");
+            }
+          }
+          break;
+        case "snap-down":
+          if (activeWindowId) snapWindow(activeWindowId, null);
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeWindowId, isLauncherOpen, windows, parseKeyboardEvent, getHotkey, setLauncherOpen, closeWindow, minimizeWindow, snapWindow, maximizeWindow, handleOpenApp]);
 
   const handleDesktopContextMenu = useCallback(
     (e: React.MouseEvent) => {
@@ -168,6 +226,7 @@ export default function Desktop() {
             onMaximize={maximizeWindow}
             onMove={moveWindow}
             onResize={resizeWindow}
+            onSnap={snapWindow}
             onContextMenu={(x, y) =>
               setContextMenu({
                 x,
