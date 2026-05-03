@@ -43,14 +43,14 @@ export default function AppLauncher({ isOpen, onClose, onOpenApp }: AppLauncherP
 
   return (
     <div className="fixed inset-0 z-40" onClick={onClose}>
-      <div className="absolute top-7 left-0 rounded-br-2xl p-5 pb-6"
+      <div className="absolute top-7 left-0 rounded-br-lg p-4 pb-5"
         style={{
-          backgroundColor: 'rgba(245, 245, 245, 0.97)',
+          backgroundColor: 'rgba(250, 250, 250, 0.98)',
           backdropFilter: 'blur(20px)',
           width: 680,
-          boxShadow: '2px 4px 32px rgba(0,0,0,0.15), 0 1px 0 rgba(255,255,255,0.6) inset',
-          borderRight: '1px solid rgba(0,0,0,0.08)',
-          borderBottom: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+          borderRight: '1px solid rgba(0,0,0,0.06)',
+          borderBottom: '1px solid rgba(0,0,0,0.06)',
         }}
         onClick={e => e.stopPropagation()}>
         {/* View toggles + search */}
