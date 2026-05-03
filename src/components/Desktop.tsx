@@ -118,9 +118,22 @@ export default function Desktop() {
         );
       })}
 
+      {/* bottom hover trigger zone to reveal auto-hidden dock */}
+      {hasWindows && (
+        <div
+          aria-hidden
+          className="fixed bottom-0 left-0 right-0 z-40"
+          style={{ height: 6 }}
+          onMouseEnter={showDock}
+        />
+      )}
+
       <Dock
         onOpenApp={handleOpenApp}
         openAppIds={windows.map(w => w.appId)}
+        visible={!hasWindows || dockVisible}
+        onMouseEnter={showDock}
+        onMouseLeave={hasWindows ? scheduleHideDock : undefined}
         onContextMenu={(appId, x, y) => {
           const isOpen = windows.some(w => w.appId === appId);
           setCtxMenu({
