@@ -20,6 +20,11 @@ import {
   List,
   Upload,
   RefreshCw,
+  Copy,
+  Scissors,
+  Clipboard,
+  Eye,
+  X,
 } from "lucide-react";
 import { fs, type FileNode } from "@/lib/os/filesystem";
 
@@ -101,6 +106,8 @@ export default function FilesApp({ windowId }: FilesAppProps) {
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [isLoading, setIsLoading] = useState(true);
+  const [previewFile, setPreviewFile] = useState<FileNode | null>(null);
+  const [clipboard, setClipboard] = useState<{ files: FileNode[]; mode: "copy" | "cut" } | null>(null);
 
   const loadFiles = useCallback(async () => {
     setIsLoading(true);
@@ -123,6 +130,32 @@ export default function FilesApp({ windowId }: FilesAppProps) {
   useEffect(() => {
     loadFiles();
   }, [loadFiles]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "c") {
+          e.preventDefault();
+          handleCopy();
+        } else if (e.key === "x") {
+          e.preventDefault();
+          handleCut();
+        } else if (e.key === "v") {
+          e.preventDefault();
+          handlePaste();
+        }
+      } else if (e.key === "Delete") {
+        e.preventDefault();
+        handleDelete();
+      } else if (e.key === "Enter" && selected) {
+        const node = files.find((f) => f.name === selected);
+        if (node) handleDoubleClick(node);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selected, files, clipboard]);
 
   const filteredFiles = files.filter((f) =>
     f.name.toLowerCase().includes(query.toLowerCase())
@@ -184,7 +217,89 @@ export default function FilesApp({ windowId }: FilesAppProps) {
     }
   };
 
+  const handleCopy = async () => {
+    if (!selected) return;
+    const node = files.find((f) => f.name === selected);
+    if (node) {
+      setClipboard({ files: [node], mode: "copy" });
+    }
+  };
+
+  const handleCut = async () => {
+    if (!selected) return;
+    const node = files.find((f) => f.name === selected);
+    if (node) {
+      setClipboard({ files: [node], mode: "cut" });
+    }
+  };
+
+  const handlePaste = async () => {
+    if (!clipboard || clipboard.files.length === 0) return;
+    
+    try {
+      for (const file of clipboard.files) {
+        const destPath = `${currentPath}/${file.name}`;
+        if (clipboard.mode === "copy") {
+          const content = await fs.readFile(file.path);
+          await fs.writeFile(destPath, content);
+        } else {
+          // Cut operation: copy then delete original
+          const content = await fs.readFile(file.path);
+          await fs.writeFile(destPath, content);
+          await fs.rm(file.path, false);
+        }
+      }
+      
+      if (clipboard.mode === "cut") {
+        setClipboard(null);
+      }
+      loadFiles();
+      setSelected(null);
+    } catch (error) {
+      alert(`Failed to paste: ${error}`);
+    }
+  };
+
+  const handlePreview = async () => {
+    if (!selected) return;
+    const node = files.find((f) => f.name === selected);
+    if (node) {
+      setPreviewFile(node);
+    }
+  };
+
   const breadcrumbs = currentPath.split("/").filter(Boolean);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const items = e.dataTransfer.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === "string" && items[i].type === "text/plain") {
+        items[i].getAsString(async (filePath: string) => {
+          try {
+            const fileName = filePath.split("/").pop() || "file";
+            const sourceNode = files.find((f) => f.path === filePath);
+            if (sourceNode) {
+              const content = await fs.readFile(filePath);
+              await fs.writeFile(`${currentPath}/${fileName}`, content);
+              loadFiles();
+            }
+          } catch (error) {
+            console.error("[v0] Drop failed:", error);
+          }
+        });
+      }
+    }
+  };
 
   return (
     <div className="flex h-full text-sm" style={{ background: "hsl(var(--card))" }}>
@@ -239,7 +354,11 @@ export default function FilesApp({ windowId }: FilesAppProps) {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div
+        className="flex-1 flex flex-col min-w-0"
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         {/* Toolbar */}
         <div
           className="h-11 flex items-center gap-2 px-3 shrink-0"
@@ -282,6 +401,38 @@ export default function FilesApp({ windowId }: FilesAppProps) {
             title="New Folder"
           >
             <Plus size={14} />
+          </button>
+          <button
+            onClick={handleCopy}
+            disabled={!selected}
+            className="p-1.5 rounded-md hover:bg-secondary transition-colors disabled:opacity-50"
+            title="Copy (Ctrl+C)"
+          >
+            <Copy size={14} />
+          </button>
+          <button
+            onClick={handleCut}
+            disabled={!selected}
+            className="p-1.5 rounded-md hover:bg-secondary transition-colors disabled:opacity-50"
+            title="Cut (Ctrl+X)"
+          >
+            <Scissors size={14} />
+          </button>
+          <button
+            onClick={handlePaste}
+            disabled={!clipboard}
+            className="p-1.5 rounded-md hover:bg-secondary transition-colors disabled:opacity-50"
+            title="Paste (Ctrl+V)"
+          >
+            <Clipboard size={14} />
+          </button>
+          <button
+            onClick={handlePreview}
+            disabled={!selected}
+            className="p-1.5 rounded-md hover:bg-secondary transition-colors disabled:opacity-50"
+            title="Preview (Enter)"
+          >
+            <Eye size={14} />
           </button>
           <button
             onClick={loadFiles}
@@ -424,7 +575,7 @@ export default function FilesApp({ windowId }: FilesAppProps) {
           }}
         >
           <span>
-            {filteredFiles.length} item{filteredFiles.length !== 1 ? "s" : ""}
+            {filteredFiles.length} item{filteredFiles.length !== 1 ? "s" : ""}{clipboard && ` • Clipboard: ${clipboard.files.length} file(s)`}
           </span>
           {selected && (
             <button
@@ -437,6 +588,92 @@ export default function FilesApp({ windowId }: FilesAppProps) {
           )}
         </div>
       </div>
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: "rgba(0, 0, 0, 0.5)" }}
+          onClick={() => setPreviewFile(null)}
+        >
+          <div
+            className="bg-card rounded-lg shadow-lg max-w-2xl max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "hsl(var(--card))" }}
+          >
+            {/* Preview header */}
+            <div
+              className="flex items-center justify-between px-4 py-3 border-b"
+              style={{ borderColor: "hsl(var(--border))" }}
+            >
+              <div className="flex items-center gap-2">
+                {iconFor(previewFile)}
+                <span className="font-medium truncate">{previewFile.name}</span>
+              </div>
+              <button
+                onClick={() => setPreviewFile(null)}
+                className="p-1 hover:bg-secondary rounded-md transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Preview content */}
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+              {previewFile.type === "folder" ? (
+                <div className="text-center text-muted-foreground">
+                  <Folder size={48} className="mx-auto mb-2 opacity-30" />
+                  <p>Cannot preview folder</p>
+                </div>
+              ) : previewFile.name.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i) ? (
+                <img
+                  src={`data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==`}
+                  alt={previewFile.name}
+                  className="max-w-full max-h-full object-contain"
+                  onError={() => {
+                    console.log("[v0] Image preview not available");
+                  }}
+                />
+              ) : previewFile.name.match(/\.(txt|json|js|ts|tsx|jsx|css|html|md)$/i) ? (
+                <div className="w-full text-sm">
+                  <div
+                    className="p-3 rounded-md font-mono text-xs overflow-auto"
+                    style={{
+                      background: "hsl(var(--secondary))",
+                      color: "hsl(var(--muted-foreground))",
+                      maxHeight: "400px",
+                    }}
+                  >
+                    <p className="text-muted-foreground">[File content would be displayed here]</p>
+                    <p className="text-muted-foreground text-[10px] mt-2">
+                      Size: {formatSize(previewFile.size)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  <FileText size={48} className="mx-auto mb-2 opacity-30" />
+                  <p>Preview not available for this file type</p>
+                  <p className="text-xs mt-2">Size: {formatSize(previewFile.size)}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Preview footer */}
+            <div
+              className="px-4 py-3 border-t flex justify-end gap-2"
+              style={{ borderColor: "hsl(var(--border))" }}
+            >
+              <button
+                onClick={() => setPreviewFile(null)}
+                className="px-3 py-1.5 rounded-md text-sm hover:bg-secondary transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { fs, type FileNode } from "@/lib/os/filesystem";
 import { useOSStore } from "@/lib/stores/os-store";
 import { getApp, getAllApps } from "@/lib/os/app-registry";
+import ShellExecutor from "../../lib/shell-executor";
 
 interface TerminalAppProps {
   windowId: string;
