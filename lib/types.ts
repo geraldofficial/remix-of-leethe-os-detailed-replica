@@ -26,6 +26,7 @@ export interface MenuItem {
   submenu?: MenuItem[];
   checked?: boolean;
   icon?: React.ReactNode;
+  className?: string;
 }
 
 export interface ContextMenuState {
