@@ -1,0 +1,200 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 96%;
+    --foreground: 210 11% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 15%;
+    --primary: 210 11% 15%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 93%;
+    --secondary-foreground: 210 11% 15%;
+    --muted: 0 0% 93%;
+    --muted-foreground: 210 6% 45%;
+    --accent: 207 90% 54%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 65% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 85%;
+    --input: 0 0% 85%;
+    --ring: 207 90% 54%;
+    --radius: 0.5rem;
+
+    /* LeetheOS Semantic Tokens */
+    --os-panel-bg: 210 11% 8%;
+    --os-panel-fg: 0 0% 98%;
+    --os-window-bg: 0 0% 99%;
+    --os-window-header: 0 0% 96%;
+    --os-window-border: 0 0% 82%;
+    --os-dock-bg: 0 0% 12%;
+    --os-dock-border: 0 0% 20%;
+    --os-launcher-bg: 0 0% 98%;
+    --os-terminal-bg: 220 14% 10%;
+    --os-terminal-fg: 0 0% 90%;
+    --os-sidebar-bg: 0 0% 95%;
+    --os-sidebar-fg: 210 6% 35%;
+    --os-toolbar-bg: 0 0% 97%;
+    --os-highlight: 207 90% 94%;
+    --os-highlight-text: 207 80% 35%;
+    --os-success: 142 76% 36%;
+    --os-warning: 38 92% 50%;
+    --os-error: 0 84% 60%;
+
+    /* Sidebar tokens for shadcn */
+    --sidebar-background: 0 0% 95%;
+    --sidebar-foreground: 210 6% 35%;
+    --sidebar-primary: 207 90% 54%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 207 90% 94%;
+    --sidebar-accent-foreground: 207 80% 35%;
+    --sidebar-border: 0 0% 85%;
+    --sidebar-ring: 207 90% 54%;
+  }
+
+  .dark {
+    --background: 220 14% 8%;
+    --foreground: 0 0% 95%;
+    --card: 220 14% 12%;
+    --card-foreground: 0 0% 95%;
+    --popover: 220 14% 12%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 220 14% 8%;
+    --secondary: 220 14% 18%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 220 14% 18%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 207 90% 54%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 14% 22%;
+    --input: 220 14% 22%;
+    --ring: 207 90% 54%;
+
+    --os-panel-bg: 220 14% 6%;
+    --os-panel-fg: 0 0% 98%;
+    --os-window-bg: 220 14% 12%;
+    --os-window-header: 220 14% 14%;
+    --os-window-border: 220 14% 22%;
+    --os-dock-bg: 220 14% 8%;
+    --os-dock-border: 220 14% 16%;
+    --os-launcher-bg: 220 14% 10%;
+    --os-sidebar-bg: 220 14% 10%;
+    --os-sidebar-fg: 0 0% 75%;
+    --os-toolbar-bg: 220 14% 14%;
+
+    --sidebar-background: 220 14% 10%;
+    --sidebar-foreground: 0 0% 75%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Window shadows */
+.window-shadow {
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 12px 24px -8px rgba(0, 0, 0, 0.15),
+    0 4px 8px -2px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.dock-shadow {
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Custom scrollbar */
+.os-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.os-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.os-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+.os-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Terminal colors */
+.term-prompt { color: #22c55e; }
+.term-path { color: #3b82f6; }
+.term-user { color: #a855f7; }
+.term-output { color: #d1d5db; }
+.term-error { color: #ef4444; }
+.term-warning { color: #eab308; }
+.term-success { color: #22c55e; }
+.term-info { color: #06b6d4; }
+.term-muted { color: #6b7280; }
+
+/* Dock animations */
+@keyframes dock-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-16px); }
+}
+
+.dock-bounce {
+  animation: dock-bounce 0.5s cubic-bezier(0.36, 0, 0.66, -0.56);
+}
+
+@keyframes window-open {
+  0% { 
+    opacity: 0; 
+    transform: scale(0.95) translateY(10px); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: scale(1) translateY(0); 
+  }
+}
+
+.window-open {
+  animation: window-open 0.2s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+
+/* Selection */
+::selection {
+  background: hsl(var(--accent) / 0.3);
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Prevent text selection during drag */
+.dragging {
+  user-select: none;
+}
