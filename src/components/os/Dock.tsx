@@ -9,6 +9,9 @@ interface DockProps {
   onOpenApp: (appId: string) => void;
   openAppIds?: string[];
   onContextMenu?: (appId: string, x: number, y: number) => void;
+  visible?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 type DockItem = { id: string; label: string; icon: (size: number) => React.ReactNode; group: number };
