@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import wallpaper from '@/assets/wallpaper.jpg';
 import TopPanel from './os/TopPanel';
 import Dock from './os/Dock';
@@ -11,6 +11,11 @@ import TerminalApp from './apps/TerminalApp';
 import FilesApp from './apps/FilesApp';
 import CalendarApp from './apps/CalendarApp';
 import MailApp from './apps/MailApp';
+import SettingsApp from './apps/SettingsApp';
+import CalculatorApp from './apps/CalculatorApp';
+import TasksApp from './apps/TasksApp';
+import PhotosApp from './apps/PhotosApp';
+import MusicApp from './apps/MusicApp';
 import PlaceholderApp from './apps/PlaceholderApp';
 
 interface AppMeta {
@@ -25,12 +30,12 @@ const appRegistry: Record<string, AppMeta> = {
   calendar: { title: 'Calendar', width: 850, height: 520, component: CalendarApp },
   mail: { title: 'Mail', width: 900, height: 560, component: MailApp },
   browser: { title: 'Web', width: 900, height: 600, component: PlaceholderApp },
-  tasks: { title: 'Tasks', width: 700, height: 500, component: PlaceholderApp },
-  music: { title: 'Music', width: 900, height: 560, component: PlaceholderApp },
+  tasks: { title: 'Tasks', width: 700, height: 500, component: TasksApp },
+  music: { title: 'Music', width: 900, height: 560, component: MusicApp },
   videos: { title: 'Videos', width: 900, height: 560, component: PlaceholderApp },
-  photos: { title: 'Photos', width: 900, height: 560, component: PlaceholderApp },
-  settings: { title: 'System Settings', width: 800, height: 540, component: PlaceholderApp },
-  calculator: { title: 'Calculator', width: 360, height: 480, component: PlaceholderApp },
+  photos: { title: 'Photos', width: 900, height: 560, component: PhotosApp },
+  settings: { title: 'System Settings', width: 820, height: 560, component: SettingsApp },
+  calculator: { title: 'Calculator', width: 320, height: 460, component: CalculatorApp },
   camera: { title: 'Camera', width: 700, height: 500, component: PlaceholderApp },
   maps: { title: 'Maps', width: 900, height: 560, component: PlaceholderApp },
   monitor: { title: 'System Monitor', width: 800, height: 540, component: PlaceholderApp },
@@ -47,8 +52,27 @@ export const APP_REGISTRY = appRegistry;
 export default function Desktop() {
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const [dockVisible, setDockVisible] = useState(true);
+  const dockHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const desktopRef = useRef<HTMLDivElement>(null);
   const { windows, openOrFocus, closeWindow, focusWindow, minimizeWindow, maximizeWindow, moveWindow, closeAllForApp } = useWindowManager();
+
+  const showDock = useCallback(() => {
+    if (dockHideTimer.current) clearTimeout(dockHideTimer.current);
+    setDockVisible(true);
+  }, []);
+  const scheduleHideDock = useCallback(() => {
+    if (dockHideTimer.current) clearTimeout(dockHideTimer.current);
+    dockHideTimer.current = setTimeout(() => setDockVisible(false), 600);
+  }, []);
+
+  // Auto-hide when any window exists; always show on empty desktop
+  const hasWindows = windows.length > 0;
+
+  useEffect(() => {
+    if (hasWindows) scheduleHideDock();
+    else showDock();
+  }, [hasWindows, scheduleHideDock, showDock]);
 
   const handleOpenApp = useCallback((appId: string) => {
     const app = appRegistry[appId];
@@ -104,9 +128,22 @@ export default function Desktop() {
         );
       })}
 
+      {/* bottom hover trigger zone to reveal auto-hidden dock */}
+      {hasWindows && (
+        <div
+          aria-hidden
+          className="fixed bottom-0 left-0 right-0 z-40"
+          style={{ height: 6 }}
+          onMouseEnter={showDock}
+        />
+      )}
+
       <Dock
         onOpenApp={handleOpenApp}
         openAppIds={windows.map(w => w.appId)}
+        visible={!hasWindows || dockVisible}
+        onMouseEnter={showDock}
+        onMouseLeave={hasWindows ? scheduleHideDock : undefined}
         onContextMenu={(appId, x, y) => {
           const isOpen = windows.some(w => w.appId === appId);
           setCtxMenu({

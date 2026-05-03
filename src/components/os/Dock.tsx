@@ -9,6 +9,9 @@ interface DockProps {
   onOpenApp: (appId: string) => void;
   openAppIds?: string[];
   onContextMenu?: (appId: string, x: number, y: number) => void;
+  visible?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 type DockItem = { id: string; label: string; icon: (size: number) => React.ReactNode; group: number };
@@ -32,7 +35,7 @@ const dockItems: DockItem[] = [
   { id: 'plus',         label: 'Add App',           icon: s => <PlusAppIcon size={s} />,       group: 2 },
 ];
 
-export default function Dock({ onOpenApp, openAppIds = [], onContextMenu }: DockProps) {
+export default function Dock({ onOpenApp, openAppIds = [], onContextMenu, visible = true, onMouseEnter, onMouseLeave }: DockProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [bouncingIdx, setBouncingIdx] = useState<number | null>(null);
 
@@ -101,8 +104,11 @@ export default function Dock({ onOpenApp, openAppIds = [], onContextMenu }: Dock
 
   return (
     <div
-      className="fixed bottom-3 left-1/2 -translate-x-1/2 flex items-end z-50"
+      className="fixed left-1/2 flex items-end z-50"
       style={{
+        bottom: 12,
+        transform: `translateX(-50%) translateY(${visible ? '0' : 'calc(100% + 24px)'})`,
+        transition: 'transform 280ms cubic-bezier(0.22, 1, 0.36, 1)',
         gap: 6,
         padding: '8px 12px',
         borderRadius: 16,
@@ -112,7 +118,8 @@ export default function Dock({ onOpenApp, openAppIds = [], onContextMenu }: Dock
         boxShadow: '0 8px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
         border: '1px solid rgba(255,255,255,0.06)',
       }}
-      onMouseLeave={() => setHoveredIdx(null)}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={() => { setHoveredIdx(null); onMouseLeave?.(); }}
     >
       {rendered}
     </div>
