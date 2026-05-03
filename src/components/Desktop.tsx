@@ -64,6 +64,11 @@ export default function Desktop() {
   // Auto-hide when any window exists; always show on empty desktop
   const hasWindows = windows.length > 0;
 
+  useEffect(() => {
+    if (hasWindows) scheduleHideDock();
+    else showDock();
+  }, [hasWindows, scheduleHideDock, showDock]);
+
   const handleOpenApp = useCallback((appId: string) => {
     const app = appRegistry[appId];
     if (app) openOrFocus(appId, app.title, app.width, app.height);
