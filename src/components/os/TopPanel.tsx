@@ -20,21 +20,23 @@ export default function TopPanel({ onApplicationsClick }: TopPanelProps) {
   };
 
   return (
-    <div className="h-7 flex items-center justify-between px-3 text-xs select-none"
-      style={{ backgroundColor: 'hsl(var(--panel-bg))', color: 'hsl(var(--panel-fg))' }}>
+    <div className="h-7 flex items-center justify-between px-4 text-xs font-medium select-none relative z-50"
+      style={{ backgroundColor: 'rgba(10, 10, 10, 0.85)', color: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)' }}>
       <div className="flex items-center gap-2">
-        <button onClick={onApplicationsClick} className="flex items-center gap-1 hover:opacity-80 transition-opacity">
-          <Search size={12} />
-          <span className="font-medium">Applications</span>
+        <button onClick={onApplicationsClick} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity px-1 py-0.5">
+          <Search size={11} />
+          <span>Applications</span>
         </button>
       </div>
-      <div className="flex items-center gap-1 text-xs opacity-90">
+      <div className="absolute left-1/2 -translate-x-1/2 flex items-center text-xs opacity-90">
         {formatDate(time)}
       </div>
       <div className="flex items-center gap-3">
         <Volume2 size={13} className="opacity-80" />
-        <ChevronLeft size={10} className="opacity-60" />
-        <ChevronRight size={10} className="opacity-60" />
+        <div className="flex items-center gap-0.5 opacity-60">
+          <ChevronLeft size={10} />
+          <ChevronRight size={10} />
+        </div>
         <Wifi size={13} className="opacity-80" />
         <Battery size={13} className="opacity-80" />
       </div>
