@@ -56,7 +56,7 @@ export default function Desktop() {
       })}
 
       {/* Dock */}
-      <Dock onOpenApp={handleOpenApp} />
+      <Dock onOpenApp={handleOpenApp} openAppIds={windows.map(w => w.appId)} />
     </div>
   );
 }
