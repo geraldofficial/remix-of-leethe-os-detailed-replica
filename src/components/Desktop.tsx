@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import wallpaper from '@/assets/wallpaper.jpg';
 import TopPanel from './os/TopPanel';
 import Dock from './os/Dock';
