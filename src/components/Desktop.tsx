@@ -47,8 +47,22 @@ export const APP_REGISTRY = appRegistry;
 export default function Desktop() {
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const [dockVisible, setDockVisible] = useState(true);
+  const dockHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const desktopRef = useRef<HTMLDivElement>(null);
   const { windows, openOrFocus, closeWindow, focusWindow, minimizeWindow, maximizeWindow, moveWindow, closeAllForApp } = useWindowManager();
+
+  const showDock = useCallback(() => {
+    if (dockHideTimer.current) clearTimeout(dockHideTimer.current);
+    setDockVisible(true);
+  }, []);
+  const scheduleHideDock = useCallback(() => {
+    if (dockHideTimer.current) clearTimeout(dockHideTimer.current);
+    dockHideTimer.current = setTimeout(() => setDockVisible(false), 600);
+  }, []);
+
+  // Auto-hide when any window exists; always show on empty desktop
+  const hasWindows = windows.length > 0;
 
   const handleOpenApp = useCallback((appId: string) => {
     const app = appRegistry[appId];
