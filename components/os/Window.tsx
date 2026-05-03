@@ -2,7 +2,7 @@
 
 import { useRef, useCallback, useState } from "react";
 import { X, Minus, Square, Copy } from "lucide-react";
-import type { AppWindow } from "@/lib/stores/os-store";
+import type { AppWindow, SnapPosition } from "@/lib/stores/os-store";
 import { useSettingsStore } from "@/lib/stores/settings-store";
 
 interface WindowProps {
@@ -13,6 +13,7 @@ interface WindowProps {
   onMaximize: (id: string) => void;
   onMove: (id: string, x: number, y: number) => void;
   onResize: (id: string, width: number, height: number) => void;
+  onSnap: (id: string, position: SnapPosition) => void;
   onContextMenu?: (x: number, y: number) => void;
   children: React.ReactNode;
 }
@@ -27,10 +28,13 @@ export default function Window({
   onMaximize,
   onMove,
   onResize,
+  onSnap,
   onContextMenu,
   children,
 }: WindowProps) {
   const { reduceMotion } = useSettingsStore();
+  const [snapPreview, setSnapPreview] = useState<SnapPosition>(null);
+  
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -77,9 +81,27 @@ export default function Window({
         const newX = Math.max(0, dragRef.current.winX + dx);
         const newY = Math.max(28, dragRef.current.winY + dy); // Keep below topbar
         onMove(win.id, newX, newY);
+
+        // Detect snap zones (30px threshold from edges)
+        const snapThreshold = 30;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight - 28;
+        
+        let preview: SnapPosition = null;
+        if (newX < snapThreshold) {
+          preview = "left";
+        } else if (newX + win.width > viewportWidth - snapThreshold) {
+          preview = "right";
+        }
+        
+        setSnapPreview(preview);
       };
 
       const handleMouseUp = () => {
+        if (dragRef.current?.moved && snapPreview) {
+          onSnap(win.id, snapPreview);
+        }
+        setSnapPreview(null);
         dragRef.current = null;
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleMouseUp);
@@ -177,25 +199,46 @@ export default function Window({
       };
 
   return (
-    <div
-      className={`fixed overflow-hidden window-shadow flex flex-col ${
-        reduceMotion ? "" : "window-open"
-      } ${isResizing ? "dragging" : ""}`}
-      style={{
-        ...style,
-        borderRadius: win.isMaximized ? 0 : 10,
-        background: "hsl(var(--os-window-bg))",
-        border: win.isMaximized ? "none" : "1px solid hsl(var(--os-window-border))",
-      }}
-      onMouseDown={() => onFocus(win.id)}
-      onContextMenu={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.closest("[data-titlebar]")) {
-          e.preventDefault();
-          onContextMenu?.(e.clientX, e.clientY);
-        }
-      }}
-    >
+    <>
+      {/* Snap preview */}
+      {snapPreview && (
+        <div
+          className="fixed pointer-events-none"
+          style={{
+            left: snapPreview === "left" ? 0 : snapPreview === "right" ? "50%" : 0,
+            top: 28,
+            width: snapPreview === "left" || snapPreview === "right" ? "50%" : "100%",
+            height: "calc(100vh - 28px)",
+            backgroundColor: "rgba(100, 150, 255, 0.1)",
+            border: "2px solid rgba(100, 150, 255, 0.3)",
+            zIndex: win.zIndex - 1,
+            borderRadius: 0,
+          }}
+        />
+      )}
+
+      <div
+        className={`fixed overflow-hidden window-shadow flex flex-col ${
+          reduceMotion ? "" : "window-open"
+        } ${isResizing ? "dragging" : ""} transition-all ${
+          snapPreview ? "opacity-50" : ""
+        }`}
+        style={{
+          ...style,
+          borderRadius: win.isMaximized ? 0 : 10,
+          background: "hsl(var(--os-window-bg))",
+          border: win.isMaximized ? "none" : "1px solid hsl(var(--os-window-border))",
+          transition: snapPreview ? "none" : "border-color 0.2s ease",
+        }}
+        onMouseDown={() => onFocus(win.id)}
+        onContextMenu={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest("[data-titlebar]")) {
+            e.preventDefault();
+            onContextMenu?.(e.clientX, e.clientY);
+          }
+        }}
+      >
       {/* Title bar */}
       <div
         data-titlebar
@@ -299,6 +342,7 @@ export default function Window({
           />
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }
