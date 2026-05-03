@@ -11,6 +11,11 @@ import TerminalApp from './apps/TerminalApp';
 import FilesApp from './apps/FilesApp';
 import CalendarApp from './apps/CalendarApp';
 import MailApp from './apps/MailApp';
+import SettingsApp from './apps/SettingsApp';
+import CalculatorApp from './apps/CalculatorApp';
+import TasksApp from './apps/TasksApp';
+import PhotosApp from './apps/PhotosApp';
+import MusicApp from './apps/MusicApp';
 import PlaceholderApp from './apps/PlaceholderApp';
 
 interface AppMeta {
