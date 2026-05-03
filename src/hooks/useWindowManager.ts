@@ -7,21 +7,43 @@ export function useWindowManager() {
   const [windows, setWindows] = useState<AppWindow[]>([]);
 
   const openWindow = useCallback((appId: string, title: string, width: number, height: number) => {
-    const id = `${appId}-${Date.now()}`;
-    const x = 80 + Math.random() * 200;
-    const y = 60 + Math.random() * 100;
     nextZ++;
+    const id = `${appId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const offset = (windows.length % 6) * 24;
+    const x = 120 + offset;
+    const y = 80 + offset;
     setWindows(prev => [...prev, { id, appId, title, x, y, width, height, isMinimized: false, isMaximized: false, zIndex: nextZ }]);
     return id;
+  }, [windows.length]);
+
+  const focusWindow = useCallback((id: string) => {
+    nextZ++;
+    const z = nextZ;
+    setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: z, isMinimized: false } : w));
+  }, []);
+
+  const openOrFocus = useCallback((appId: string, title: string, width: number, height: number, forceNew = false) => {
+    setWindows(prev => {
+      if (!forceNew) {
+        const existing = prev.find(w => w.appId === appId);
+        if (existing) {
+          nextZ++;
+          return prev.map(w => w.id === existing.id ? { ...w, zIndex: nextZ, isMinimized: false } : w);
+        }
+      }
+      nextZ++;
+      const id = `${appId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const offset = (prev.length % 6) * 24;
+      return [...prev, { id, appId, title, x: 120 + offset, y: 80 + offset, width, height, isMinimized: false, isMaximized: false, zIndex: nextZ }];
+    });
   }, []);
 
   const closeWindow = useCallback((id: string) => {
     setWindows(prev => prev.filter(w => w.id !== id));
   }, []);
 
-  const focusWindow = useCallback((id: string) => {
-    nextZ++;
-    setWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: nextZ } : w));
+  const closeAllForApp = useCallback((appId: string) => {
+    setWindows(prev => prev.filter(w => w.appId !== appId));
   }, []);
 
   const minimizeWindow = useCallback((id: string) => {
@@ -36,5 +58,5 @@ export function useWindowManager() {
     setWindows(prev => prev.map(w => w.id === id ? { ...w, x, y } : w));
   }, []);
 
-  return { windows, openWindow, closeWindow, focusWindow, minimizeWindow, maximizeWindow, moveWindow };
+  return { windows, openWindow, openOrFocus, closeWindow, focusWindow, minimizeWindow, maximizeWindow, moveWindow, closeAllForApp };
 }
